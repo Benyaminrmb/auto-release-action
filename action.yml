@@ -1,4 +1,4 @@
-name: 'Auto Release Action'
+name: 'Auto Release Action Semantic'
 description: 'Automatically creates semantic versioned releases based on conventional commit messages'
 author: 'Benyaminrmb'
 
