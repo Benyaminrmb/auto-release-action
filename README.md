@@ -29,7 +29,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: Benyaminrmb/auto-release-action@v1
+      - uses: Benyaminrmb/auto-release-action@v1.2.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
