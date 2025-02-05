@@ -1,5 +1,5 @@
 # Auto Release Action 🚀
-
+ 
 A GitHub Action that automatically creates semantic versioned releases based on conventional commits. This action automatically detects changes, bumps version numbers, and generates comprehensive changelogs with links to commits, PRs, and contributors.
 
 ## Features ✨
