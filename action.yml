@@ -1,0 +1,29 @@
+name: 'Auto Release Action'
+description: 'Automatically creates semantic versioned releases based on conventional commit messages'
+author: 'Benyaminrmb'
+
+branding:
+  icon: 'tag'
+  color: 'blue'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Shell Script
+      shell: bash
+      run: |
+        chmod +x ${{ github.action_path }}/release.sh
+        ${{ github.action_path }}/release.sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+
+inputs:
+  github_token:
+    description: 'GitHub token for creating releases'
+    required: true
+    default: ${{ github.token }}
