@@ -2,9 +2,12 @@
 
 set -e
 
-# Configure Git user for GitHub Actions
+# Configure Git user
 git config --global user.name "github-actions[bot]"
 git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+# Set up GitHub authentication
+git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
 
 # Check for the latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
