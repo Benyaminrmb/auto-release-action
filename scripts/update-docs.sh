@@ -6,7 +6,11 @@
 set -e
 
 # Get Latest Tag
-LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
+if [ -z "$LATEST_TAG" ]; then
+  echo "No tags found. Using initial commit as base."
+  LATEST_TAG=$(git rev-list --max-parents=0 HEAD)
+fi
 VERSION=${LATEST_TAG#v}
 
 echo "Updating documentation to version $VERSION..."
