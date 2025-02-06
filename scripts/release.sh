@@ -2,15 +2,21 @@
 
 set -e
 
-# Get Latest Tag
+# Configure Git user for GitHub Actions
+git config --global user.name "github-actions[bot]"
+git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+# Check for the latest tag
 LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
+# If no tags exist, create v0.0.1 and push it
 if [ -z "$LATEST_TAG" ]; then
   echo "No tags found. Creating initial tag v0.0.1..."
   LATEST_TAG="v0.0.1"
   git tag -a "$LATEST_TAG" -m "Initial release"
   git push origin "$LATEST_TAG"
 fi
+
 echo "Latest tag: $LATEST_TAG"
 
 # Determine Next Version
