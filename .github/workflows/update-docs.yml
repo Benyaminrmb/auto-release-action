@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'  # Triggers on version tags
+  workflow_dispatch:  # Allows manual triggers
 
 permissions:
   contents: write
@@ -14,11 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Important for getting git history
 
       - name: Update Documentation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x $GITHUB_WORKSPACE/scripts/update-docs.sh
-          $GITHUB_WORKSPACE/scripts/update-docs.sh
+          chmod +x .github/workflows/update-docs.sh
+          .github/workflows/update-docs.sh
