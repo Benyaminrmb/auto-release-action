@@ -7,9 +7,13 @@ set -e
 
 # Get Latest Tag
 LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
+
+# If no tags exist, create v0.0.1
 if [ -z "$LATEST_TAG" ]; then
-  echo "No tags found. Using initial commit as base."
-  LATEST_TAG=$(git rev-list --max-parents=0 HEAD)
+  echo "No tags found. Creating initial tag v0.0.1..."
+  LATEST_TAG="v0.0.1"
+  git tag -a "$LATEST_TAG" -m "Initial release"
+  git push origin "$LATEST_TAG"
 fi
 VERSION=${LATEST_TAG#v}
 
