@@ -3,7 +3,7 @@
 set -e
 
 # Get Latest Tag
-LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.1")
 echo "Latest tag: $LATEST_TAG"
 
 # Determine Next Version
