@@ -21,5 +21,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x .github/workflows/update-docs.sh
-          .github/workflows/update-docs.sh
+          chmod +x $GITHUB_WORKSPACE/scripts/update-docs.sh
+          $GITHUB_WORKSPACE/scripts/update-docs.sh
