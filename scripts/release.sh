@@ -3,7 +3,14 @@
 set -e
 
 # Get Latest Tag
-LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.1")
+LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+if [ -z "$LATEST_TAG" ]; then
+  echo "No tags found. Creating initial tag v0.0.1..."
+  LATEST_TAG="v0.0.1"
+  git tag -a "$LATEST_TAG" -m "Initial release"
+  git push origin "$LATEST_TAG"
+fi
 echo "Latest tag: $LATEST_TAG"
 
 # Determine Next Version
