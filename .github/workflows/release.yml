@@ -17,9 +17,18 @@ jobs:
         with:
           fetch-depth: 0  # Important for getting git history
 
+      - name: Setup GitHub CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+          && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+          && sudo apt update \
+          && sudo apt install gh -y
+
       - name: Run Release Script
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Used by GitHub CLI
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          chmod +x .github/workflows/release.sh
-          .github/workflows/release.sh
+          chmod +x $GITHUB_WORKSPACE/scripts/release.sh
+          $GITHUB_WORKSPACE/scripts/release.sh
