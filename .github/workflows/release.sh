@@ -52,21 +52,33 @@ generate_release_notes() {
     ["FEATURES"]=""
     ["FIXES"]=""
     ["DOCS"]=""
+    ["CHORE"]=""
+    ["REFACTOR"]=""
+    ["TEST"]=""
     ["OTHER"]=""
-    ["MERGES"]=""
   )
 
   echo "Processing commits between $PREV_TAG and HEAD..."
 
   # Store all commits in an array
-  readarray -t COMMITS < <(git log --reverse $PREV_TAG..HEAD --pretty=format:"%H|%s|%an")
+  readarray -t COMMITS < <(git log --reverse $PREV_TAG..HEAD --pretty=format:"%H|%s|%ae")
 
   # Process each commit
   for line in "${COMMITS[@]}"; do
     COMMIT_HASH=$(echo "$line" | cut -d'|' -f1)
     COMMIT_MSG=$(echo "$line" | cut -d'|' -f2)
-    COMMIT_AUTHOR=$(echo "$line" | cut -d'|' -f3)
-    PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oP '#\K[0-9]+' || echo "")
+    COMMIT_EMAIL=$(echo "$line" | cut -d'|' -f3)
+
+    # Extract GitHub username from email (username@users.noreply.github.com)
+    COMMIT_AUTHOR=$(echo "$COMMIT_EMAIL" | sed -n 's/\(.*\)@users.noreply.github.com/\1/p')
+    # If not a GitHub noreply email, use the local part of the email
+    if [ -z "$COMMIT_AUTHOR" ]; then
+      COMMIT_AUTHOR=$(echo "$COMMIT_EMAIL" | cut -d@ -f1)
+    fi
+
+    # Extract PR, issue numbers from commit message
+    PR_NUMBERS=$(echo "$COMMIT_MSG" | grep -oP '(?<=[Cc]loses? |[Ff]ixes? |#)\K[0-9]+' || echo "")
+    ISSUE_NUMBERS=$(echo "$COMMIT_MSG" | grep -oP '(?<=[Rr]esolves? |[Ff]ixes? |[Cc]loses? |[Rr]elates? to )[Ii]ssue #\K[0-9]+' || echo "")
 
     # Skip merge commits
     if git rev-parse --verify $COMMIT_HASH^2 >/dev/null 2>&1; then
@@ -75,10 +87,22 @@ generate_release_notes() {
 
     # Create commit link
     COMMIT_LINK="[\`${COMMIT_HASH:0:7}\`](https://github.com/$REPO/commit/$COMMIT_HASH)"
-    PR_LINK=""
-    [ ! -z "$PR_NUMBER" ] && PR_LINK=" ([#${PR_NUMBER}](https://github.com/$REPO/pull/${PR_NUMBER}))"
 
-    ENTRY="- ${COMMIT_LINK}${PR_LINK}: $COMMIT_MSG ([@$COMMIT_AUTHOR](https://github.com/$COMMIT_AUTHOR))"$'\n'
+    # Create PR and Issue links
+    PR_LINKS=""
+    for PR in $PR_NUMBERS; do
+      PR_LINKS+=" ([#${PR}](https://github.com/$REPO/pull/${PR}))"
+    done
+
+    ISSUE_LINKS=""
+    for ISSUE in $ISSUE_NUMBERS; do
+      ISSUE_LINKS+=" ([Issue #${ISSUE}](https://github.com/$REPO/issues/${ISSUE}))"
+    done
+
+    # Clean commit message - remove PR numbers and standardize
+    CLEAN_MSG=$(echo "$COMMIT_MSG" | sed -E 's/(#[0-9]+|fixes #[0-9]+|closes #[0-9]+|resolves #[0-9]+)//gi' | sed 's/  / /g' | sed 's/^ //g' | sed 's/ $//g')
+
+    ENTRY="- ${COMMIT_LINK}${PR_LINKS}${ISSUE_LINKS}: ${CLEAN_MSG} ([@${COMMIT_AUTHOR}](https://github.com/${COMMIT_AUTHOR}))"$'\n'
 
     if echo "$COMMIT_MSG" | grep -iqE "BREAKING[ -]CHANGE|!:"; then
       SECTIONS["BREAKING_CHANGES"]+="$ENTRY"
@@ -88,6 +112,12 @@ generate_release_notes() {
       SECTIONS["FIXES"]+="$ENTRY"
     elif echo "$COMMIT_MSG" | grep -iq "^docs:"; then
       SECTIONS["DOCS"]+="$ENTRY"
+    elif echo "$COMMIT_MSG" | grep -iq "^chore:"; then
+      SECTIONS["CHORE"]+="$ENTRY"
+    elif echo "$COMMIT_MSG" | grep -iq "^refactor:"; then
+      SECTIONS["REFACTOR"]+="$ENTRY"
+    elif echo "$COMMIT_MSG" | grep -iq "^test:"; then
+      SECTIONS["TEST"]+="$ENTRY"
     else
       SECTIONS["OTHER"]+="$ENTRY"
     fi
@@ -96,6 +126,8 @@ generate_release_notes() {
   # Generate release notes
   {
     echo "## 🎉 Release $NEW_TAG"
+    echo
+    echo "## What's Changed 🔄"
     echo
 
     # Breaking Changes
@@ -121,9 +153,30 @@ generate_release_notes() {
 
     # Documentation
     if [ ! -z "${SECTIONS["DOCS"]}" ]; then
-      echo "### 📝 Documentation"
+      echo "### 📝 Documentation Updates"
       echo
       echo "${SECTIONS["DOCS"]}"
+    fi
+
+    # Chore
+    if [ ! -z "${SECTIONS["CHORE"]}" ]; then
+      echo "### 🔧 Maintenance"
+      echo
+      echo "${SECTIONS["CHORE"]}"
+    fi
+
+    # Refactor
+    if [ ! -z "${SECTIONS["REFACTOR"]}" ]; then
+      echo "### ♻️ Code Refactoring"
+      echo
+      echo "${SECTIONS["REFACTOR"]}"
+    fi
+
+    # Tests
+    if [ ! -z "${SECTIONS["TEST"]}" ]; then
+      echo "### ✅ Tests"
+      echo
+      echo "${SECTIONS["TEST"]}"
     fi
 
     # Other Changes
@@ -137,9 +190,18 @@ generate_release_notes() {
     echo "## 📊 Statistics"
     echo
     echo "- Total Commits: \`$(git rev-list --count $PREV_TAG..HEAD)\`"
-    echo "- Contributors: \`$(git log $PREV_TAG..HEAD --format="%aN" | sort -u | wc -l)\`"
+    echo "- Contributors: \`$(git log $PREV_TAG..HEAD --format="%aE" | sort -u | wc -l)\`"
+    echo "- Lines Changed: \`+$(git diff --shortstat $PREV_TAG..HEAD | grep -oP '\d+ insertion' | cut -d' ' -f1 || echo "0")\` \`-$(git diff --shortstat $PREV_TAG..HEAD | grep -oP '\d+ deletion' | cut -d' ' -f1 || echo "0")\`"
     echo
-    echo "🔗 **[Full Changelog](https://github.com/$REPO/compare/$PREV_TAG...$NEW_TAG)**"
+    echo "## 🔗 Links"
+    echo
+    echo "- [Full Changelog](https://github.com/$REPO/compare/$PREV_TAG...$NEW_TAG)"
+    echo "- [Release Notes](https://github.com/$REPO/releases/tag/$NEW_TAG)"
+
+    echo
+    echo "---"
+    echo
+    echo "*This release note was automatically generated by [auto-release-action](https://github.com/$REPO)*"
   } > RELEASE_BODY.md
 }
 
@@ -147,12 +209,12 @@ generate_release_notes() {
 generate_release_notes
 
 # Create and push new tag
-git config --global user.name "github-actions"
-git config --global user.email "github-actions@github.com"
+git config --global user.name "github-actions[bot]"
+git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git tag -a $NEW_TAG -m "Release $NEW_TAG"
 git push origin $NEW_TAG
 
-# Create GitHub Release using GitHub CLI
+# Create GitHub Release
 gh release create $NEW_TAG \
   --title "Release $NEW_TAG" \
   --notes-file RELEASE_BODY.md

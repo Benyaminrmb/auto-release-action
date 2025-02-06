@@ -1,185 +1,25 @@
-name: Auto Release
+name: Release
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - main  # Change this to your default branch if different
 
 permissions:
-  contents: write
-  pull-requests: read
-  issues: write
+  contents: write  # Needed for creating releases and tags
+  pull-requests: read  # Needed for PR information
 
 jobs:
   release:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}  # Use PAT instead of GITHUB_TOKEN
+          fetch-depth: 0  # Important for getting git history
 
-      - name: Get Latest Tag
-        run: |
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
-
-      - name: Determine Next Version
-        run: |
-          VERSION=${LATEST_TAG#v}
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-          MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
-
-          # Check all commits since last tag for version bumping
-          COMMITS=$(git log $LATEST_TAG..HEAD --pretty=format:"%s")
-          
-          BREAKING_CHANGE=false
-          NEW_FEATURE=false
-          
-          while IFS= read -r COMMIT; do
-            if echo "$COMMIT" | grep -iqE "BREAKING[ -]CHANGE|!:"; then
-              BREAKING_CHANGE=true
-              break
-            elif echo "$COMMIT" | grep -iq "feat:"; then
-              NEW_FEATURE=true
-            fi
-          done <<< "$COMMITS"
-
-          if [ "$BREAKING_CHANGE" = true ]; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif [ "$NEW_FEATURE" = true ]; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          else
-            PATCH=$((PATCH + 1))
-          fi
-
-          NEW_TAG="v$MAJOR.$MINOR.$PATCH"
-          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "Next version: $NEW_TAG"
-
-      - name: Generate Release Notes
+      - name: Run Release Script
         env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Used by GitHub CLI
         run: |
-          PREV_TAG=$LATEST_TAG
-          REPO=${{ github.repository }}
-          
-          # Initialize sections
-          declare -A SECTIONS=(
-            ["BREAKING_CHANGES"]=""
-            ["FEATURES"]=""
-            ["FIXES"]=""
-            ["DOCS"]=""
-            ["OTHER"]=""
-            ["MERGES"]=""
-          )
-
-          echo "Processing commits between $PREV_TAG and HEAD..."
-          
-          # Store all commits in an array
-          readarray -t COMMITS < <(git log --reverse $PREV_TAG..HEAD --pretty=format:"%H|%s|%an")
-          
-          # Process each commit
-          for line in "${COMMITS[@]}"; do
-            COMMIT_HASH=$(echo "$line" | cut -d'|' -f1)
-            COMMIT_MSG=$(echo "$line" | cut -d'|' -f2)
-            COMMIT_AUTHOR=$(echo "$line" | cut -d'|' -f3)
-            PR_NUMBER=$(echo "$COMMIT_MSG" | grep -oP '#\K[0-9]+' || echo "")
-          
-            # Skip merge commits
-            if git rev-parse --verify $COMMIT_HASH^2 >/dev/null 2>&1; then
-              continue
-            fi
-          
-            # Create commit link
-            COMMIT_LINK="[\`${COMMIT_HASH:0:7}\`](https://github.com/$REPO/commit/$COMMIT_HASH)"
-            PR_LINK=""
-            [ ! -z "$PR_NUMBER" ] && PR_LINK=" ([#${PR_NUMBER}](https://github.com/$REPO/pull/${PR_NUMBER}))"
-          
-            ENTRY="- ${COMMIT_LINK}${PR_LINK}: $COMMIT_MSG ([@$COMMIT_AUTHOR](https://github.com/$COMMIT_AUTHOR))"$'\n'
-
-            if echo "$COMMIT_MSG" | grep -iqE "BREAKING[ -]CHANGE|!:"; then
-              SECTIONS["BREAKING_CHANGES"]+="$ENTRY"
-            elif echo "$COMMIT_MSG" | grep -iq "^feat:"; then
-              SECTIONS["FEATURES"]+="$ENTRY"
-            elif echo "$COMMIT_MSG" | grep -iq "^fix:"; then
-              SECTIONS["FIXES"]+="$ENTRY"
-            elif echo "$COMMIT_MSG" | grep -iq "^docs:"; then
-              SECTIONS["DOCS"]+="$ENTRY"
-            else
-              SECTIONS["OTHER"]+="$ENTRY"
-            fi
-          done
-
-          {
-            echo "## 🎉 Release ${{ env.NEW_TAG }}"
-            echo
-          
-            # Breaking Changes
-            if [ ! -z "${SECTIONS["BREAKING_CHANGES"]}" ]; then
-              echo "### ⚠️ Breaking Changes"
-              echo
-              echo "${SECTIONS["BREAKING_CHANGES"]}"
-            fi
-          
-            # Features
-            if [ ! -z "${SECTIONS["FEATURES"]}" ]; then
-              echo "### ✨ New Features"
-              echo
-              echo "${SECTIONS["FEATURES"]}"
-            fi
-          
-            # Fixes
-            if [ ! -z "${SECTIONS["FIXES"]}" ]; then
-              echo "### 🐛 Bug Fixes"
-              echo
-              echo "${SECTIONS["FIXES"]}"
-            fi
-          
-            # Documentation
-            if [ ! -z "${SECTIONS["DOCS"]}" ]; then
-              echo "### 📝 Documentation"
-              echo
-              echo "${SECTIONS["DOCS"]}"
-            fi
-          
-            # Other Changes
-            if [ ! -z "${SECTIONS["OTHER"]}" ]; then
-              echo "### 🔹 Other Changes"
-              echo
-              echo "${SECTIONS["OTHER"]}"
-            fi
-
-            echo
-            echo "## 📊 Statistics"
-            echo
-            echo "- Total Commits: \`$(git rev-list --count $PREV_TAG..HEAD)\`"
-            echo "- Contributors: \`$(git log $PREV_TAG..HEAD --format="%aN" | sort -u | wc -l)\`"
-            echo
-            echo "🔗 **[Full Changelog](https://github.com/${{ github.repository }}/compare/$PREV_TAG...${{ env.NEW_TAG }})**"
-          } > RELEASE_BODY.md
-
-      - name: Create and Push New Tag
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a $NEW_TAG -m "Release $NEW_TAG"
-          git push origin $NEW_TAG
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        with:
-          tag_name: ${{ env.NEW_TAG }}
-          release_name: "Release ${{ env.NEW_TAG }}"
-          body_path: RELEASE_BODY.md
-          draft: false
-          prerelease: false
+          chmod +x .github/workflows/release.sh
+          .github/workflows/release.sh
