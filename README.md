@@ -1,6 +1,6 @@
 # Auto Release Action 🚀
- 
-A GitHub Action that automatically creates semantic versioned releases based on conventional commits. This action automatically detects changes, bumps version numbers, and generates comprehensive changelogs with links to commits, PRs, and contributors.
+
+A GitHub Action that automatically creates semantic versioned releases based on conventional commits. This action detects changes, bumps version numbers, and generates comprehensive changelogs with links to commits, PRs, and contributors.
 
 ## Features ✨
 
@@ -13,11 +13,11 @@ A GitHub Action that automatically creates semantic versioned releases based on 
 - 👥 GitHub-style contributor attribution
 - 📈 Comprehensive release statistics
 - 🔍 Intelligent commit message parsing
-- 🏷️ Proper git tag handling
+- 🌂 Proper Git tag handling
 
-## Usage 📋
+## Usage 👋
 
-1. Create `.github/workflows/release.yml` in your repository
+1. Create `.github/workflows/release.yml` in your repository.
 2. Add the following content:
 
 ```yaml
@@ -27,14 +27,24 @@ on:
   push:
     branches:
       - main  # Change this to your default branch if different
+  workflow_dispatch:  # Allows manual triggers
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # ✅ Allows pushing tags
+
     steps:
-      - uses: Benyaminrmb/auto-release-action@v1.4.0
+      - name: Checkout Repository
+        uses: actions/checkout@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # ✅ Ensures full history and tags are available
+
+      - name: Run Auto Release Action
+        uses: Benyaminrmb/auto-release-action@v1.5.8
+        with:
+          github-token: ${{ secrets.MY_GITHUB_TOKEN }}
 ```
 
 3. Start using conventional commits in your repository!
@@ -101,16 +111,16 @@ git commit -m "feat: add search functionality (fixes #456)" # Links to Issue #45
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License 📄
+## License 📝
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Support 💬
 
 If you encounter any issues or have questions:
-1. Check existing issues
+1. Check existing issues.
 2. Open a new issue with:
-    - Workflow file content
-    - Action logs
-    - Repository structure
-    - Expected vs actual behavior
+   - Workflow file content.
+   - Action logs.
+   - Repository structure.
+   - Expected vs actual behavior.
